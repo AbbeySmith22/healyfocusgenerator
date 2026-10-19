@@ -316,7 +316,100 @@ return res.status(200).json({ output });
   }
 };
 
+
 async function captureEmail(email) {
+  const apiKey = process.env.SYSTEME_API_KEY;
+  const tagId = 2233099;
+
+  if (!apiKey) {
+    console.error('SYSTEME_API_KEY is missing');
+    return false;
+  }
+
+  const cleanEmail = String(email || '').trim().toLowerCase();
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+    console.error('Invalid email supplied');
+    return false;
+  }
+
+  const base = 'https://api.systeme.io/api';
+
+  const headers = {
+    'X-API-Key': apiKey,
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  };
+
+  try {
+    // STEP 1: Find existing contact
+    const lookup = await fetch(
+      `${base}/contacts?email=${encodeURIComponent(cleanEmail)}`,
+      { method: 'GET', headers }
+    );
+
+    if (!lookup.ok) {
+      throw new Error(`Contact lookup failed: ${lookup.status}`);
+    }
+
+    const lookupData = await lookup.json();
+
+    const contacts = Array.isArray(lookupData.items)
+      ? lookupData.items
+      : [];
+
+    let contact = contacts.find(
+      item => String(item.email || '').toLowerCase() === cleanEmail
+    );
+
+    // STEP 2: Create contact if not found
+    if (!contact) {
+      const create = await fetch(`${base}/contacts`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ email: cleanEmail })
+      });
+
+      if (!create.ok) {
+        const details = await create.text();
+        throw new Error(
+          `Contact creation failed (${create.status}): ${details.slice(0, 500)}`
+        );
+      }
+
+      contact = await create.json();
+    }
+
+    if (!contact?.id) {
+      throw new Error('Systeme.io did not return a contact ID');
+    }
+
+    // STEP 3: Apply Focus Generator tag
+    const tagging = await fetch(
+      `${base}/contacts/${contact.id}/tags`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ tagId })
+      }
+    );
+
+    if (!tagging.ok && tagging.status !== 409) {
+      const details = await tagging.text();
+      throw new Error(
+        `Tagging failed (${tagging.status}): ${details.slice(0, 500)}`
+      );
+    }
+
+    console.log('Focus Generator tag processed');
+    return true;
+
+  } catch (error) {
+    console.error('Systeme.io capture failed:', error.message);
+    return false;
+  }
+}
+
   if (!process.env.SYSTEME_API_KEY) {
     console.error('SYSTEME_API_KEY is missing');
     return;
