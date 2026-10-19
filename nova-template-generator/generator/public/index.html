@@ -144,14 +144,24 @@
   .results { display: none; }
   .results.show { display: block; }
 
-  /* OUTPUT BOX */
-  .output-box {
-    background: var(--dark); border-radius: 12px;
-    padding: 24px 28px; margin-bottom: 16px;
-    font-family: var(--body-font); font-size: 15px;
-    color: var(--mid-bg); line-height: 1.85;
-    white-space: pre-wrap; word-break: break-word;
-  }
+  /* BEAUTIFUL, READABLE RESULTS */
+  .output-box { display: grid; gap: 16px; margin-bottom: 22px; }
+  .result-card { background: #fff; border: 1.5px solid #ded8f8; border-radius: 18px; padding: 24px; box-shadow: 0 3px 16px rgba(25,23,47,.035); min-width: 0; }
+  .result-card:nth-child(3n + 2) { background: #f9f7ff; }
+  .result-card:nth-child(3n) { background: #f1fbf9; border-color: #c5eee5; }
+  .result-card.recommended { background: linear-gradient(120deg,#f1eaff,#edf9fc); border-color: #cfc3f7; }
+  .result-heading { font-family: var(--body-font); font-size: 13px; font-weight: 800; letter-spacing: 1.3px; text-transform: uppercase; color: #6b56c4; margin-bottom: 13px; }
+  .result-body { font-size: 15px; line-height: 1.8; color: #34304f; overflow-wrap: anywhere; }
+  .result-body p { margin: 0 0 11px; }
+  .result-body p:last-child { margin-bottom: 0; }
+  .result-body strong { color: #19172f; font-weight: 700; }
+  .result-body ul, .result-body ol { margin: 6px 0 12px 22px; padding: 0; }
+  .result-body li { margin: 5px 0; }
+  .focus-card { padding: 15px 17px; border-radius: 12px; background: #fff; border: 1px solid #e0daf7; margin: 12px 0; }
+  .focus-card-title { font-size: 12px; font-weight: 800; color: #6b56c4; text-transform: uppercase; letter-spacing: .8px; margin-bottom: 7px; }
+  .focus-copy { display: inline-block; margin-top: 10px; border: 1px solid #8370d9; background: #fff; color: #6b56c4; border-radius: 8px; padding: 7px 12px; cursor: pointer; font: 700 12px var(--body-font); }
+  .focus-copy:hover { background: #f4f0ff; }
+  @media (max-width: 600px) { .result-card { padding: 18px; } }
 
   .output-actions { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
   .action-btn {
@@ -424,22 +434,117 @@ body: JSON.stringify({ userInput: pendingInput, email: email })
   }
 }
 
-function displayResults(r) {
-  document.getElementById('loading').classList.remove('show');
-  // For plain text output use r.output
-  // For JSON output use r.section_one, r.section_two, etc.
-  document.getElementById('output-box').textContent = r.output || JSON.stringify(r, null, 2);
-  document.getElementById('results').classList.add('show');
-  window.scrollTo(0, 0);
+let lastGeneratedOutput = '';
+
+function escapeResultText(value) {
+  return String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 }
 
-function copyOutput() {
-  const text = document.getElementById('output-box').textContent;
-  navigator.clipboard.writeText(text).then(() => {
-    const btn = event.target;
-    btn.textContent = 'Copied!';
-    setTimeout(() => btn.textContent = 'Copy to Clipboard', 2000);
+function inlineResultText(value) {
+  return escapeResultText(value).replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+}
+
+function resultParagraphs(value) {
+  const lines = value.trim().split(/\n/);
+  let html = '', listType = '';
+  function closeList() { if (listType) { html += `</${listType}>`; listType = ''; } }
+  for (const line of lines) {
+    const text = line.trim();
+    if (!text || text === '---') { closeList(); continue; }
+    const numbered = text.match(/^\d+[.)]\s+(.+)$/);
+    const bulleted = text.match(/^[-*]\s+(.+)$/);
+    if (numbered || bulleted) {
+      const kind = numbered ? 'ol' : 'ul';
+      if (listType !== kind) { closeList(); html += `<${kind}>`; listType = kind; }
+      html += `<li>${inlineResultText((numbered || bulleted)[1])}</li>`;
+    } else {
+      closeList();
+      html += `<p>${inlineResultText(text.replace(/^#{1,6}\s+/, ''))}</p>`;
+    }
+  }
+  closeList();
+  return html;
+}
+
+function focusCards(sectionText) {
+  const pattern = /^\s*(?:#{1,6}\s*)?(?:\*\*)?([1-4])[.)]\s*(Present Pattern|Underlying Pattern|Desired State|Deep Dive)(?:\*\*)?\s*:?\s*$/gim;
+  const matches = [...sectionText.matchAll(pattern)];
+  if (!matches.length) return resultParagraphs(sectionText);
+  let html = resultParagraphs(sectionText.slice(0, matches[0].index));
+  matches.forEach((match, i) => {
+    const end = i + 1 < matches.length ? matches[i + 1].index : sectionText.length;
+    const focus = sectionText.slice(match.index + match[0].length, end).trim();
+    const cleanFocus = focus.replace(/^[-*]\s+/, '').replace(/\*\*/g, '').trim();
+    html += `<div class="focus-card"><div class="focus-card-title">${escapeResultText(match[2])}</div>`;
+    html += `<div>${resultParagraphs(focus)}</div>`;
+    html += `<button type="button" class="focus-copy" data-copy-focus="${escapeResultText(cleanFocus)}">Copy focus</button></div>`;
   });
+  return html;
+}
+
+function displayResults(r) {
+  document.getElementById('loading').classList.remove('show');
+  lastGeneratedOutput = String(r.output || JSON.stringify(r, null, 2));
+  const container = document.getElementById('output-box');
+  container.replaceChildren();
+  const sections = [
+    { name: "Let's Get Real", pattern: /let['’]s get real/i },
+    { name: 'Your 4 Healy Focuses', pattern: /your 4 healy focuses/i },
+    { name: 'Start With This One', pattern: /start with this one/i, recommended: true },
+    { name: 'Which Healy Scan?', pattern: /which healy scan/i },
+    { name: 'What to Do on Your Healy', pattern: /what to do on your healy/i },
+    { name: 'After Your Scan', pattern: /after your scan/i }
+  ];
+  const lines = lastGeneratedOutput.split(/\r?\n/);
+  const found = [];
+  lines.forEach((line, index) => {
+    const normalized = line.trim().replace(/^#{1,6}\s*/, '').replace(/^\*+|\*+$/g, '').replace(/^[✦✨\s]+/, '').trim();
+    const section = sections.find(item => item.pattern.test(normalized) && normalized.length < 70);
+    if (section) found.push({ index, section });
+  });
+  function addCard(title, content, recommended, isFocus) {
+    if (!content.trim()) return;
+    const card = document.createElement('section');
+    card.className = 'result-card' + (recommended ? ' recommended' : '');
+    const heading = document.createElement('h3');
+    heading.className = 'result-heading';
+    heading.textContent = title;
+    const body = document.createElement('div');
+    body.className = 'result-body';
+    body.innerHTML = isFocus ? focusCards(content) : resultParagraphs(content);
+    card.append(heading, body);
+    container.appendChild(card);
+  }
+  if (!found.length) {
+    addCard('Your Healy Focus Session', lastGeneratedOutput, false, false);
+  } else {
+    const intro = lines.slice(0, found[0].index).join('\n').replace(/^\s*#{1,6}\s*Your Healy Focus Session\s*/i, '').replace(/^\s*---\s*/gm, '').trim();
+    if (intro) addCard('Your Healy Focus Session', intro, false, false);
+    found.forEach((entry, i) => {
+      const end = i + 1 < found.length ? found[i + 1].index : lines.length;
+      addCard(entry.section.name, lines.slice(entry.index + 1, end).join('\n'), entry.section.recommended, entry.section.name === 'Your 4 Healy Focuses');
+    });
+  }
+  container.querySelectorAll('[data-copy-focus]').forEach(button => {
+    button.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(button.dataset.copyFocus);
+        button.textContent = 'Copied!';
+        setTimeout(() => { button.textContent = 'Copy focus'; }, 1800);
+      } catch (error) { button.textContent = 'Copy failed'; }
+    });
+  });
+  document.getElementById('results').classList.add('show');
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function copyOutput() {
+  try {
+    await navigator.clipboard.writeText(lastGeneratedOutput);
+    const button = document.querySelector('.output-actions .action-btn');
+    button.textContent = 'Copied!';
+    setTimeout(() => { button.textContent = 'Copy to Clipboard'; }, 2000);
+  } catch (error) { alert('Could not copy automatically. Please try again.'); }
 }
 
 async function generateAgain() {
@@ -468,7 +573,8 @@ function resetTool() {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
-  document.getElementById('output-box').textContent = '';
+  document.getElementById('output-box').replaceChildren();
+  lastGeneratedOutput = '';
   document.getElementById('error-box').classList.remove('show');
   document.getElementById('gate-btn').disabled = false;
   document.getElementById('gate-btn').textContent = 'Generate Mine';
