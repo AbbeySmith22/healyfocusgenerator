@@ -9,7 +9,23 @@
 // 2. The output format in the prompt (plain text or JSON)
 // 3. The temperature (0.7-0.9 for creative variety)
 // ============================================================
+function hasValidFocusResult(text) {
+  if (typeof text !== 'string') return false;
 
+  const requiredSections = [
+    'Your 4 Healy Focuses',
+    'Present Pattern',
+    'Underlying Pattern',
+    'Desired State',
+    'Deep Dive',
+    'Start With This One',
+    'Which Healy Scan?'
+  ];
+
+  return requiredSections.every(section =>
+    text.toLowerCase().includes(section.toLowerCase())
+  );
+}
 async function verifyHealyMember(req) {
   const authorization = req.headers.authorization || '';
 
@@ -437,6 +453,19 @@ if (creditUsageId !== null) {
         error: 'The AI returned an empty response. Please try again.'
       });
     }
+
+if (!hasValidFocusResult(output)) {
+  console.error('Invalid Healy Focus result returned');
+
+  if (creditUsageId !== null) {
+    await refundHealyCredit(member.id, creditUsageId);
+    creditUsageId = null;
+  }
+
+  return res.status(502).json({
+    error: 'We could not create your four Healy focuses. Please add more detail and try again. Your credit has been refunded.'
+  });
+}
 
    // Capture email without interrupting the generator
 console.log('Email received:', Boolean(email));
