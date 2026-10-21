@@ -469,8 +469,7 @@ if (!hasValidFocusResult(output)) {
   }
 
   return res.status(502).json({
-    error: 'We could not create your four Healy focuses. Please add more detail and try again. Your credit has been refunded.'
-  });
+error: 'We could not create your four Healy focuses. Please add more detail and try again. If your credit was deducted, it should have been returned. Please check your balance.'  });
 }
 
    // Capture email without interrupting the generator
