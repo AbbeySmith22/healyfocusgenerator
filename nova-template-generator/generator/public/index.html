@@ -666,5 +666,54 @@ function resetTool() {
   connectHealySupabase();
 </script>
 
+<script>
+  const memberEmail = document.getElementById('member-email');
+  const memberPassword = document.getElementById('member-password');
+  const memberMessage = document.getElementById('member-message');
+
+  async function memberAuth(action) {
+    const email = memberEmail.value.trim();
+    const password = memberPassword.value;
+
+    if (!email || !password) {
+      memberMessage.textContent = 'Please enter your email and password.';
+      return;
+    }
+
+    if (!window.healySupabase) {
+      memberMessage.textContent =
+        'Connection is still loading. Please try again.';
+      return;
+    }
+
+    memberMessage.textContent = 'Please wait...';
+
+    const credentials = { email, password };
+
+    const { data, error } = action === 'signup'
+      ? await window.healySupabase.auth.signUp(credentials)
+      : await window.healySupabase.auth.signInWithPassword(credentials);
+
+    if (error) {
+      memberMessage.textContent = error.message;
+      return;
+    }
+
+    if (action === 'signup' && !data.session) {
+      memberMessage.textContent =
+        'Account created! Check your email to confirm your account, then log in.';
+      return;
+    }
+
+    memberMessage.textContent = 'You are logged in! 💜';
+  }
+
+  document.getElementById('member-signup')
+    .addEventListener('click', () => memberAuth('signup'));
+
+  document.getElementById('member-signin')
+    .addEventListener('click', () => memberAuth('signin'));
+</script>
+
 </body>
 </html>
