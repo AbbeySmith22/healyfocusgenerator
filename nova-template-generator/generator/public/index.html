@@ -498,6 +498,14 @@ if (!session) {
   return;
 }
 
+const { data: { session } } =
+  await window.healySupabase.auth.getSession();
+
+if (!session) {
+  alert('Please log in to generate another result.');
+  return;
+}
+
     const response = await fetch('/api/generate', {
       method: 'POST',
 
@@ -642,7 +650,11 @@ async function generateAgain() {
   try {
     const response = await fetch('/api/generate', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+
+headers: {
+  'Content-Type': 'application/json',
+  'Authorization': `Bearer ${session.access_token}`
+},
       body: JSON.stringify({ userInput: pendingInput })
     });
     const result = await response.json();
