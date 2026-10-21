@@ -494,16 +494,7 @@ const { data: { session } } =
   await window.healySupabase.auth.getSession();
 
 if (!session) {
-  alert('Please log in to use your Healy Tool Suite credits.');
-  return;
-}
-
-const { data: { session } } =
-  await window.healySupabase.auth.getSession();
-
-if (!session) {
-  alert('Please log in to generate another result.');
-  return;
+  throw new Error('Please log in to use your Healy Tool Suite credits.');
 }
 
     const response = await fetch('/api/generate', {
