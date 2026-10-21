@@ -101,7 +101,13 @@ async function refundHealyCredit(userId, usageId) {
     );
   }
 
-  return await response.json();
+const refunded = await response.json();
+
+if (refunded !== true) {
+  throw new Error('Credit refund was not confirmed');
+}
+
+return true;
 }
 
 module.exports = async function handler(req, res) {
