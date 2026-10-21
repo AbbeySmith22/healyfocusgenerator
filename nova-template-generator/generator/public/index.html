@@ -732,6 +732,26 @@ function resetTool() {
     
 document.getElementById('member-login').style.display = 'none';
 
+const { data: { user } } = await window.healySupabase.auth.getUser();
+
+if (user) {
+  const { data: credits, error: creditsError } =
+    await window.healySupabase
+      .from('member_credits')
+      .select('credits_remaining')
+      .eq('user_id', user.id)
+      .single();
+
+  if (creditsError) {
+    console.error('Could not load credits:', creditsError);
+  } else {
+    document.getElementById('credits-count').textContent =
+      credits.credits_remaining;
+
+    document.getElementById('member-credits').style.display = 'block';
+  }
+}
+
   }
 
   document.getElementById('member-signup')
