@@ -10,6 +10,33 @@
 // 3. The temperature (0.7-0.9 for creative variety)
 // ============================================================
 
+async function verifyHealyMember(req) {
+  const authorization = req.headers.authorization || '';
+
+  if (!authorization.startsWith('Bearer ')) {
+    return null;
+  }
+
+  const token = authorization.slice(7);
+
+  const response = await fetch(
+    `${process.env.SUPABASE_URL}/auth/v1/user`,
+    {
+      headers: {
+        apikey: process.env.SUPABASE_PUBLISHABLE_KEY,
+        Authorization: `Bearer ${token}`
+      }
+    }
+  );
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const user = await response.json();
+  return user.id ? user : null;
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
