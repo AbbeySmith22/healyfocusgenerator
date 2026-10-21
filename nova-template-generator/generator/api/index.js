@@ -128,6 +128,31 @@ res.setHeader(
     });
   }
 
+  // Check credits without deducting them yet
+  const creditResponse = await fetch(
+    `${process.env.SUPABASE_URL}/rest/v1/member_credits?user_id=eq.${member.id}&select=credits_remaining`,
+    {
+      headers: {
+        apikey: process.env.SUPABASE_SECRET_KEY,
+        Authorization: `Bearer ${process.env.SUPABASE_SECRET_KEY}`
+      }
+    }
+  );
+
+  if (!creditResponse.ok) {
+    return res.status(503).json({
+      error: 'Unable to check your credits. Please try again.'
+    });
+  }
+
+  const creditRows = await creditResponse.json();
+
+  if (!creditRows.length || creditRows[0].credits_remaining < 1) {
+    return res.status(403).json({
+      error: 'You have used all your Healy Tool Suite credits.'
+    });
+  }
+
   // ============================================================
   // SYSTEM PROMPT — CUSTOMIZE THIS FOR YOUR TOOL
   // ============================================================
