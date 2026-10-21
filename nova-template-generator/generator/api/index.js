@@ -37,6 +37,32 @@ async function verifyHealyMember(req) {
   return user.id ? user : null;
 }
 
+async function reserveHealyCredit(userId) {
+  const response = await fetch(
+    `${process.env.SUPABASE_URL}/rest/v1/rpc/reserve_tool_credit`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: process.env.SUPABASE_SECRET_KEY,
+        Authorization: `Bearer ${process.env.SUPABASE_SECRET_KEY}`
+      },
+      body: JSON.stringify({
+        p_user_id: userId,
+        p_tool_name: 'healy-focus-generator'
+      })
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Credit reservation failed: ${response.status}`
+    );
+  }
+
+  return await response.json();
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
