@@ -636,6 +636,13 @@ async function copyOutput() {
 
 async function generateAgain() {
   if (!pendingInput) return;
+  const { data: { session } } =
+  await window.healySupabase.auth.getSession();
+
+if (!session) {
+  alert('Please log in to generate another result.');
+  return;
+}
   document.getElementById('results').classList.remove('show');
   document.getElementById('loading').classList.add('show');
   try {
