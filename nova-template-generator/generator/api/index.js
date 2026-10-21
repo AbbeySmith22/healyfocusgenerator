@@ -372,7 +372,8 @@ End with a short, real, encouraging comment. No cheesy motivational speeches.
 //   "notes": "[any additional notes]"
 // }
 // `;
-
+  let creditUsageId = null;
+  
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
