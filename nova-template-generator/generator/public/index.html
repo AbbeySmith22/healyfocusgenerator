@@ -584,5 +584,37 @@ function resetTool() {
   window.scrollTo(0, 0);
 }
 </script>
+  
+<script>
+  window.healySupabase = null;
+
+  async function connectHealySupabase() {
+    try {
+      const response = await fetch('/api/config');
+
+      if (!response.ok) {
+        throw new Error('Could not load Supabase settings');
+      }
+
+      const config = await response.json();
+
+      if (!window.supabase) {
+        throw new Error('Supabase library did not load');
+      }
+
+      window.healySupabase = window.supabase.createClient(
+        config.supabaseUrl,
+        config.supabasePublishableKey
+      );
+
+      console.log('Healy Tool Suite connection ready');
+    } catch (error) {
+      console.error('Supabase connection error:', error);
+    }
+  }
+
+  connectHealySupabase();
+</script>
+
 </body>
 </html>
