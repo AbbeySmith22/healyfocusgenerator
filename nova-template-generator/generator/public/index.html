@@ -570,6 +570,22 @@ function focusCards(sectionText) {
 }
 
 function displayResults(r) {
+    if (window.healySupabase) {
+    window.healySupabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return;
+
+      const { data, error } = await window.healySupabase
+        .from('member_credits')
+        .select('credits_remaining')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!error && data) {
+        document.getElementById('credits-count').textContent =
+          data.credits_remaining;
+      }
+    });
+  }
   document.getElementById('loading').classList.remove('show');
   lastGeneratedOutput = String(r.output || JSON.stringify(r, null, 2));
   const container = document.getElementById('output-box');
