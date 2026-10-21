@@ -514,8 +514,9 @@ body: JSON.stringify({ userInput: pendingInput, email: email })
     document.getElementById('loading').classList.remove('show');
     document.getElementById('form-section').style.display = 'block';
     const eb = document.getElementById('error-box');
-    eb.textContent = 'Something went wrong. Please try again.';
-    eb.classList.add('show');
+eb.textContent = err.message === 'No credits remaining'
+  ? '💜 You have used your free credits! Upgrade to the Healy Tool Suite for more generations.'
+  : err.message || 'Something went wrong. Please try again.';    eb.classList.add('show');
     gateBtn.disabled = false;
     gateBtn.textContent = 'Generate Mine';
   }
