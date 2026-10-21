@@ -68,11 +68,10 @@ async function refundHealyCredit(userId, usageId) {
     `${process.env.SUPABASE_URL}/rest/v1/rpc/refund_tool_credit`,
     {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: process.env.SUPABASE_SECRET_KEY,
-        Authorization: `Bearer ${process.env.SUPABASE_SECRET_KEY}`
-      },
+     headers: {
+  'Content-Type': 'application/json',
+  apikey: process.env.SUPABASE_SECRET_KEY
+},
       body: JSON.stringify({
         p_user_id: userId,
         p_usage_id: usageId
@@ -132,10 +131,10 @@ res.setHeader(
   const creditResponse = await fetch(
     `${process.env.SUPABASE_URL}/rest/v1/member_credits?user_id=eq.${member.id}&select=credits_remaining`,
     {
-      headers: {
-        apikey: process.env.SUPABASE_SECRET_KEY,
-        Authorization: `Bearer ${process.env.SUPABASE_SECRET_KEY}`
-      }
+     headers: {
+  'Content-Type': 'application/json',
+  apikey: process.env.SUPABASE_SECRET_KEY
+},
     }
   );
 
@@ -375,6 +374,14 @@ End with a short, real, encouraging comment. No cheesy motivational speeches.
   let creditUsageId = null;
   
   try {
+const reservation = await reserveHealyCredit(member.id);
+if (!reservation.success) {
+  return res.status(403).json({
+    error: reservation.error || 'You have no credits remaining. Please upgrade your membership.'
+  });
+}
+
+creditUsageId = reservation.usage_id;
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -395,11 +402,16 @@ End with a short, real, encouraging comment. No cheesy motivational speeches.
 
     const data = await response.json();
 
-    if (!response.ok) {
-      return res.status(500).json({
-        error: data.error?.message || 'Claude API error'
-      });
-    }
+ if (!response.ok) {
+  if (creditUsageId !== null) {
+    await refundHealyCredit(member.id, creditUsageId);
+    creditUsageId = null;
+  }
+
+  return res.status(500).json({
+    error: data.error?.message || 'Claude API error'
+  });
+}
 
     // For plain text output, return as a string
     
@@ -417,7 +429,10 @@ End with a short, real, encouraging comment. No cheesy motivational speeches.
         stop_reason: data.stop_reason,
         content_types: data.content?.map(item => item.type)
       });
-
+if (creditUsageId !== null) {
+  await refundHealyCredit(member.id, creditUsageId);
+  creditUsageId = null;
+}
       return res.status(502).json({
         error: 'The AI returned an empty response. Please try again.'
       });
@@ -436,14 +451,24 @@ if (email) {
 // Return the generated Healy Focus
 return res.status(200).json({ output });
 
-  } catch (err) {
-    console.error('Healy Generator API error:', err);
-    return res.status(500).json({
-      error: 'AI generation failed. Check the Vercel function logs.'
-    });
-  }
-};
+ } catch (err) {
+  console.error('Healy Generator API error:', err);
 
+  if (creditUsageId !== null) {
+    try {
+      await refundHealyCredit(member.id, creditUsageId);
+      creditUsageId = null;
+    } catch (refundError) {
+      console.error('Credit refund failed:', refundError);
+    }
+  }
+
+  return res.status(500).json({
+    error: 'Generation failed. Please try again.'
+  });
+}
+
+};
 
 async function captureEmail(email) {
   const apiKey = process.env.SYSTEME_API_KEY;
