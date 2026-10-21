@@ -57,6 +57,25 @@ res.setHeader(
     return res.status(400).json({ error: 'Input is required' });
   }
 
+  // Verify the member's Supabase login
+  let member;
+
+  try {
+    member = await verifyHealyMember(req);
+  } catch (error) {
+    console.error('Member verification failed:', error);
+
+    return res.status(503).json({
+      error: 'Unable to verify your login. Please try again.'
+    });
+  }
+
+  if (!member) {
+    return res.status(401).json({
+      error: 'Please log in to use the Healy Tool Suite.'
+    });
+  }
+
   // ============================================================
   // SYSTEM PROMPT — CUSTOMIZE THIS FOR YOUR TOOL
   // ============================================================
